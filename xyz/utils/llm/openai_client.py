@@ -37,7 +37,7 @@ code reusability. Parameters commonly used in API requests can be encapsulated a
 import os
 import time
 import traceback
-from typing import Generator, List
+from typing import Generator
 
 from dotenv import load_dotenv
 from openai import OpenAIError
@@ -85,8 +85,8 @@ class OpenAIClient:
         # If the user provides generate arguments, update the default values
         self.generate_args.update(generate_args)
 
-    def run(self, messages: List, tools: List = None,
-            images: List = None) -> ChatCompletion | Stream[ChatCompletionChunk]:
+    def run(self, messages: list, tools: list = None,
+            images: list = None) -> ChatCompletion | Stream[ChatCompletionChunk]:
         """
         Run the assistant with the given messages.
 
@@ -170,7 +170,7 @@ class OpenAIClient:
                     print("We will try again in 2 seconds.")
                 time.sleep(2)
 
-    def stream_run(self, messages: List, images: List) -> Generator[str, None, None]:
+    def stream_run(self, messages: list, images: list) -> Generator[str, None, None]:
         """
         Run the assistant with the given messages in a streaming manner.
 
