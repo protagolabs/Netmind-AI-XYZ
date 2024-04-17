@@ -1,0 +1,9 @@
+**/.DS_Store
+**/.pytest_cache
+**/__pycache__
+**/.idea
+**/.pytest_cache
+**/.env
+**/logs
+**/service
+**/.env

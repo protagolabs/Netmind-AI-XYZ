@@ -34,6 +34,17 @@ code reusability. Parameters commonly used in API requests can be encapsulated a
 """
 
 
+import os
+import time
+import traceback
+from typing import Generator, List
+
+from dotenv import load_dotenv
+from openai import OpenAIError
+from openai import OpenAI
+from openai import Stream
+from openai.types.chat import ChatCompletion, ChatCompletionChunk
+
 __all__ = ["OpenAIClient"]
 
 
@@ -41,6 +52,9 @@ class OpenAIClient:
     """
     The OpenAI client which uses the OpenAI API to generate responses to messages.
     """
+    client: OpenAI
+    generate_args: dict
+    last_time_price: float
 
     def __init__(self, api_key=None, **generate_args):
         """Initializes the OpenAI Client.
@@ -53,10 +67,26 @@ class OpenAIClient:
             Arguments for the chat completion request.
             ref: https://platform.openai.com/docs/api-reference/chat/create
         """
-        raise NotImplementedError
 
-    def run(self, messages, tools = None,
-            images = None):
+        try:
+            if api_key is None:
+                load_dotenv()
+                api_key = os.getenv('OPENAI_API_KEY')
+            self.client = OpenAI(api_key=api_key)
+        except OpenAIError:
+            raise OpenAIError("The OpenAI client is not available. Please check the OpenAI API key.")
+
+        # Set the default generate arguments for OpenAI's chat completions
+        self.generate_args = {
+            "model": "gpt-4-turbo",
+            "temperature": 0.,
+            "top_p": 1.0
+        }
+        # If the user provides generate arguments, update the default values
+        self.generate_args.update(generate_args)
+
+    def run(self, messages: List, tools: List = None,
+            images: List = None) -> ChatCompletion | Stream[ChatCompletionChunk]:
         """
         Run the assistant with the given messages.
 
@@ -81,9 +111,66 @@ class OpenAIClient:
                 situation. An error message is printed in the console when an error is reported.
             ref: https://platform.openai.com/docs/guides/error-codes/python-library-error-types
         """
-        raise NotImplementedError
 
-    def stream_run(self, messages, images):
+        if images:
+            last_message = messages.pop()
+            text = last_message['content']
+            content = [
+                {"type": "text", "text": text},
+            ]
+            for image_url in images:
+                content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": image_url,
+                    },
+                })
+            messages.append({
+                "role": last_message['role'],
+                "content": content
+            })
+
+        # If the user provides tools, use them; otherwise, this client will not use any tools
+        if tools:
+            tool_choice = "auto"
+            local_tools = tools
+            # noinspection PyUnusedLocal
+            tools = None  # pyright: ignore[reportIncompatibleVariableOverride]
+        else:
+            local_tools = []
+            tool_choice = "none"
+
+        get_response_signal = False
+        count = 0
+        while not get_response_signal and count < 10:
+            try:
+                # In OpenAI's api, if we request with tools == [], it will make an error. Caz the OpenAI use the default
+                # value is 'NOT_GIVEN' which is a special type designed by them.
+                if tool_choice == "auto":
+                    response = self.client.chat.completions.create(
+                        messages=messages,
+                        tools=local_tools,
+                        tool_choice="auto",
+                        **self.generate_args
+                    )
+                else:
+                    response = self.client.chat.completions.create(
+                        messages=messages,
+                        **self.generate_args
+                    )
+                get_response_signal = True
+
+                return response
+            except OpenAIError:
+                count += 1
+                error_message = str(traceback.format_exc())
+                print(f"The error: {error_message}")
+                print(f"The messages: {messages}")
+                if count < 10:
+                    print("We will try again in 2 seconds.")
+                time.sleep(2)
+
+    def stream_run(self, messages: List, images: List) -> Generator[str, None, None]:
         """
         Run the assistant with the given messages in a streaming manner.
 
@@ -106,4 +193,43 @@ class OpenAIClient:
                 situation. An error message is printed in the console when an error is reported.
             ref: https://platform.openai.com/docs/guides/error-codes/python-library-error-types
         """
-        raise NotImplementedError
+
+        if images:
+            last_message = messages.pop()
+            text = last_message['content']
+            content = [
+                {"type": "text", "text": text},
+            ]
+            for image_url in images:
+                content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": image_url,
+                    },
+                })
+            messages.append({
+                "role": last_message['role'],
+                "content": content
+            })
+
+        get_response_signal = False
+        count = 0
+        while not get_response_signal and count < 10:
+            try:
+                for response in self.client.chat.completions.create(
+                        messages=messages,
+                        stream=True,
+                        timeout=5,
+                        **self.generate_args
+                ):
+                    if response.choices[0].delta.content is None:
+                        return None
+                    else:
+                        text = response.choices[0].delta.content
+                        yield text
+            except OpenAIError:
+                count += 1
+                error_message = str(traceback.format_exc())
+                print(f"The error: {error_message}")
+                print(f"The messages: {messages}")
+                time.sleep(2)

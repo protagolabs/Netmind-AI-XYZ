@@ -24,6 +24,9 @@ When creating a llm based agent, we need to pass messages and tools to the API. 
     preprocessing before being sent. This agent facilitates this process, simplifying the engineering of prompts.
 """
 
+import string
+from copy import deepcopy
+from typing import Generator, Any
 
 from xyz.node.agent import Agent
 from xyz.utils.llm.openai_client import OpenAIClient
@@ -35,6 +38,14 @@ class LLMAgent(Agent):
     """ 
     An assistant that uses the LLM (Language Learning Model) for processing messages.
     """
+    information: dict
+    llm_client: OpenAIClient
+    last_request_info: dict
+    node_config: dict
+    template: list
+    generate_parameters: dict
+    stream: bool
+    original_response: bool
 
     def __init__(self, template: list, llm_client: OpenAIClient,
                  stream: bool = False, original_response: bool = False) -> None:
@@ -53,7 +64,15 @@ class LLMAgent(Agent):
         original_response: bool, optional
             Whether to return the original response, by default False.
         """
-        raise NotImplementedError
+        super().__init__()
+
+        self.llm_client = llm_client
+
+        self.template = template
+        self.stream = stream
+        self.original_response = original_response
+
+        self.last_request_info = {}
 
     def flowing(self, messages: list = None,
                 tools: list = None,
@@ -78,15 +97,37 @@ class LLMAgent(Agent):
             The response from the assistant. If stream == True, we will return a generator.
         """
 
-        raise NotImplementedError
+        local_messages, messages = self._reset_default_list(messages)
+        local_tools, tools = self._reset_default_list(tools)
+        local_messages.extend(self._complete_prompts(**kwargs))
 
-    def request(self, messages: list, tools: list, images: list):
+        return self.request(messages=local_messages, tools=local_tools, images=images)
+
+    def request(self, messages: list, tools: list, images: list) -> str | Generator[str, None, None]:
         """
         Run the assistant with the given messages tools and images.
         """
-        raise NotImplementedError
 
-    def _stream_run(self, messages: list, images: list):
+        self.last_request_info = {
+            "messages": messages,
+            "tools": tools
+        }
+
+        if self.stream:
+            return self._stream_run(messages=messages, images=images)
+        else:
+            response = self.llm_client.run(messages=messages, tools=tools, images=images)
+            if self.original_response:
+                return response
+
+            content = response.choices[0].message.content
+
+            if content is None:
+                return response.choices[0].message.tool_calls[0].function
+            else:
+                return content
+
+    def _stream_run(self, messages: list, images: list) -> Generator[str, None, None]:
         """
         Run the assistant in a streaming manner with the given messages or images.
 
@@ -100,9 +141,10 @@ class LLMAgent(Agent):
         generator
             The generator for the token(already be decoded) in assistant's messages.
         """
-        raise NotImplementedError
 
-    def debug(self):
+        return self.llm_client.stream_run(messages=messages, images=images)
+
+    def debug(self) -> dict[Any, Any]:
         """
         Reset the assistant's messages.
 
@@ -112,4 +154,81 @@ class LLMAgent(Agent):
             The last time the request messages, tools and images.
         """
 
-        raise NotImplementedError
+        return self.last_request_info
+
+    @staticmethod
+    def _reset_default_list(parameter) -> tuple[list, Any]:
+        """
+        Reset the parameters in a method to the default values.
+
+        Reason
+        ------
+        In Python's object methods, if a parameter has a default value, this value is only assigned at the initial
+        invocation. Should the parameter's value be altered in subsequent calls, the modified value persists and is used
+        in future invocations, rather than reverting to the original default value. This behavior highlights the
+        importance of carefully managing mutable defaults to avoid unintended side effects in object state across method
+        calls.
+
+        Parameters
+        ----------
+        parameter
+            The parameter to reset.
+
+        Returns
+        -------
+        tuple
+            The value of this parameter in this time, and reset the parameter to None.
+        """
+
+        if parameter is None:
+            local = []
+        else:
+            local = deepcopy(parameter)
+            parameter = None
+
+        return local, parameter
+
+    def _complete_prompts(self, **kwargs) -> list:
+        """
+        Complete the assistant's prompts with the given keyword arguments.
+
+        Parameters
+        ----------
+        **kwargs
+            They are the placeholders in the templates' text.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the system message and the user message.
+        """
+
+        if type(self.template) is list:
+
+            current_messages = deepcopy(self.template)
+
+            for i in range(len(current_messages)):
+
+                if isinstance(current_messages[i]['content'], str):
+                    try:
+                        current_messages[i]['content'] = current_messages[i]['content'].format(**kwargs)
+                    except KeyError:
+                        variables = self.get_variables_from_fstring(current_messages[i]['content'])
+                        not_provided = [var for var in variables if var not in kwargs]
+                        raise ValueError(f"Missing required arguments: {not_provided} when calling the LLMAgent.")
+                elif isinstance(current_messages[i]['content'], list):
+                    for j in range(len(current_messages[i]['content'])):
+                        try:
+                            current_messages[i]['content'][j]['content'] = current_messages[i]['content'][j][
+                                'content'].format(**kwargs)
+                        except KeyError:
+                            variables = self.get_variables_from_fstring(current_messages[i]['content'][j]['content'])
+                            not_provided = [var for var in variables if var not in kwargs]
+                            raise ValueError(f"Missing required arguments: {not_provided} when calling the LLMAgent.")
+
+            return current_messages
+
+    @staticmethod
+    def get_variables_from_fstring(fstring):
+        formatter = string.Formatter()
+        return [name for _, name, _, _ in formatter.parse(fstring) if name is not None]
