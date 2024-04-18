@@ -1,0 +1,6 @@
+adrest==3.3.2
+numpy 
+pandas
+matplotlib
+scipy
+sympy
