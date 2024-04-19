@@ -1,0 +1,54 @@
+name: Bug Report
+description: Submit a bug report to help us to improve the Netmind.AI-XYZ.
+title: '[Bug]: Describe the issue briefly'
+labels: ['bug', 'needs-triage']
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug. Please provide the following details to help us resolve the issue.
+
+  - type: input
+    id: description
+    attributes:
+      label: Description
+      description: Describe the bug in detail, including any error messages or unusual behavior.
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Provide a step-by-step guide to reproduce the bug.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: What do you expect to happen?
+      placeholder: Describe the expected outcome.
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happens when you follow the steps to reproduce?
+      placeholder: Describe what happened instead of the expected outcome.
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Provide details about your environment, such as operating system, software version, or relevant configuration.
+
+  - type: textarea
+    id: additional_information
+    attributes:
+      label: Additional Information
+      description: Any additional information or context that might be useful.
+      placeholder: Include screenshots, logs, or other relevant details.
