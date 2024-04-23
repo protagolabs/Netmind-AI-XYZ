@@ -162,8 +162,10 @@ class OpenAIClient:
 
                 return response
             except OpenAIError:
-                count += 1
                 error_message = str(traceback.format_exc())
+                count += 1
+                if count == 10:
+                    raise OpenAIError(f"The error: {error_message}")
                 print(f"The error: {error_message}")
                 print(f"The messages: {messages}")
                 if count < 10:
@@ -228,8 +230,10 @@ class OpenAIClient:
                         text = response.choices[0].delta.content
                         yield text
             except OpenAIError:
-                count += 1
                 error_message = str(traceback.format_exc())
+                count += 1
+                if count == 10:
+                    raise OpenAIError(f"The error: {error_message}")
                 print(f"The error: {error_message}")
                 print(f"The messages: {messages}")
                 time.sleep(2)
