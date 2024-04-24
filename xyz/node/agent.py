@@ -109,11 +109,11 @@ class Agent:
         assert "name" in information["function"], "The information must have a key 'name'."
         assert "description" in information["function"], "The information must have a key 'description'."
         assert "parameters" in information["function"], "The information must have a key 'parameters'."
-        assert "type" in information["parameters"], "The information must have a key 'type'."
-        assert "properties" in information["parameters"], "The information must have a key 'properties'."
-        assert "required" in information["parameters"], "The information must have a key 'required'."
-        for parameter in information["parameters"]["required"]:
-            assert parameter in information["parameters"]["properties"], "The required parameter must in properties."
+        assert "type" in information["function"]["parameters"], "The information must have a key 'type'."
+        assert "properties" in information["function"]["parameters"], "The information must have a key 'properties'."
+        assert "required" in information["function"]["parameters"], "The information must have a key 'required'."
+        for parameter in information["function"]["parameters"]["required"]:
+            assert parameter in information["function"]["parameters"]["properties"], "The required parameter must in properties."
 
         self.information = information
 
