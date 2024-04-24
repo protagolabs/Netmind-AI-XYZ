@@ -13,10 +13,10 @@ import argparse
 from xyz.graph.auto_company import AutoCompany
 from xyz.utils.llm.openai_client import OpenAIClient
 
-from example.auto_math.agents.plan_agent import PlanAgent
-from example.auto_math.agents.solving_agent import SolvingAgent
-from example.auto_math.agents.summary_agent import SummaryAgent
-from example.auto_math.agents.coding_agent import CodingAgent
+from example.auto_company.auto_math.agents.plan_agent import PlanAgent
+from example.auto_company.auto_math.agents.solving_agent import SolvingAgent
+from example.auto_company.auto_math.agents.summary_agent import SummaryAgent
+from example.auto_company.auto_math.agents.coding_agent import CodingAgent
 
 
 def set_args():
