@@ -38,6 +38,7 @@ import os
 import time
 import traceback
 from typing import Generator
+from copy import deepcopy
 
 from dotenv import load_dotenv
 from openai import OpenAIError
@@ -55,6 +56,7 @@ class OpenAIClient:
     client: OpenAI
     generate_args: dict
     last_time_price: float
+    type: str
 
     def __init__(self, api_key=None, **generate_args):
         """Initializes the OpenAI Client.
@@ -84,9 +86,10 @@ class OpenAIClient:
         }
         # If the user provides generate arguments, update the default values
         self.generate_args.update(generate_args)
+        self.type = "llm_client"
 
     def run(self, messages: list, tools: list = None,
-            images: list = None) -> ChatCompletion | Stream[ChatCompletionChunk]:
+            images: list = None, **generate_args: dict) -> ChatCompletion | Stream[ChatCompletionChunk]:
         """
         Run the assistant with the given messages.
 
@@ -98,6 +101,8 @@ class OpenAIClient:
             A list of tools to be used by the assistant, by default [].
         images : list, optional
             A list of image URLs to be used by the assistant, by default [].
+        generate_args : dict, optional
+            Additional arguments for the chat completion request, by default {}.
 
         Returns
         -------
@@ -142,6 +147,10 @@ class OpenAIClient:
 
         get_response_signal = False
         count = 0
+
+        local_generate_args = deepcopy(self.generate_args)
+        local_generate_args.update(generate_args)
+
         while not get_response_signal and count < 10:
             try:
                 # In OpenAI's api, if we request with tools == [], it will make an error. Caz the OpenAI use the default
@@ -151,12 +160,12 @@ class OpenAIClient:
                         messages=messages,
                         tools=local_tools,
                         tool_choice="auto",
-                        **self.generate_args
+                        **local_generate_args
                     )
                 else:
                     response = self.client.chat.completions.create(
                         messages=messages,
-                        **self.generate_args
+                        **local_generate_args
                     )
                 get_response_signal = True
 
@@ -172,7 +181,7 @@ class OpenAIClient:
                     print("We will try again in 2 seconds.")
                 time.sleep(2)
 
-    def stream_run(self, messages: list, images: list) -> Generator[str, None, None]:
+    def stream_run(self, messages: list, images: list, **generate_args: dict) -> Stream[ChatCompletionChunk]:
         """
         Run the assistant with the given messages in a streaming manner.
 
@@ -182,6 +191,8 @@ class OpenAIClient:
             A list of image URLs to be used by the assistant.
         messages : list
             A list of messages to be processed by the assistant.
+        generate_args : dict, optional
+            Additional arguments for the chat completion request, by default {}.
 
         Yields
         ------
@@ -214,6 +225,9 @@ class OpenAIClient:
                 "content": content
             })
 
+        local_generate_args = deepcopy(self.generate_args)
+        local_generate_args.update(generate_args)
+
         get_response_signal = False
         count = 0
         while not get_response_signal and count < 10:
@@ -222,7 +236,7 @@ class OpenAIClient:
                         messages=messages,
                         stream=True,
                         timeout=5,
-                        **self.generate_args
+                        **local_generate_args
                 ):
                     if response.choices[0].delta.content is None:
                         return None
@@ -237,3 +251,26 @@ class OpenAIClient:
                 print(f"The error: {error_message}")
                 print(f"The messages: {messages}")
                 time.sleep(2)
+
+    def set_generate_args(self, **kwargs):
+        """
+        Set the generate arguments for the OpenAI client.
+
+        Parameters
+        ----------
+        **kwargs
+            The arguments to be set for the OpenAI client.
+        """
+
+        self.generate_args.update(kwargs)
+
+    def reset_generate_args(self) -> None:
+        """
+        Reset the generate parameters to be the default generate_args for the agent.
+        """
+
+        self.generate_args = {
+            "model": "gpt-4-turbo",
+            "temperature": 0.,
+            "top_p": 1.0
+        }

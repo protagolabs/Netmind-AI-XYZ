@@ -52,6 +52,7 @@ class Agent:
         2. The `flowing()` method must be implemented. This method is the core functionality of the Agent.
         """
 
+        self.llm_agents_dict = dict
         super().__setattr__("type", "agent")
         super().__setattr__("information", dict)
         super().__setattr__("output_type", str)
@@ -88,6 +89,68 @@ class Agent:
         """
         ...
 
+    def set_generate_args(self, llm_agent_name: str = None, **generate_args: dict) -> None:
+        """Set the generate arguments for the llm agent.
+        If the llm_agent_name is None, the function will reset the generate arguments for all llm agents in this agent.
+        If the llm_agent_name is not None, the function will reset the generate arguments for the specific llm agent.
+
+        Parameters
+        ----------
+        llm_agent_name : str, optional
+            The attribute name in this agent, by default None
+            e.g. self.llm_1 = LLMAgent()
+                The llm_agent_name is 'llm_1'
+        generate_args : dict
+            The generate arguments for the llm agent.
+        """
+
+        self.llm_agents_dict = {}
+        # Update the llm agents in this agent.
+        for key, value in vars(self).items():
+            try:
+                if "type" in vars(value) and value.type == "llm_agent":
+                    # noinspection PyProtectedMember
+                    self.llm_agents_dict[key] = value
+            except:
+                pass
+
+        if llm_agent_name:
+            assert llm_agent_name in self.llm_agents_dict, f"The llm agent {llm_agent_name} is not in the agent."
+            self.llm_agents_dict[llm_agent_name].set_generate_args(**generate_args)
+        else:
+            for _name, llm_agent in self.llm_agents_dict.items():
+                llm_agent.set_generate_args(**generate_args)
+
+    def reset_generate_args(self, llm_agent_name: str = None) -> None:
+        """Reset the generate arguments be the same with the OpenAIClient's generate args for the llm agent.
+        If the llm_agent_name is None, the function will reset the generate arguments for all llm agents in this agent.
+        If the llm_agent_name is not None, the function will reset the generate arguments for the specific llm agent.
+
+        Parameters
+        ----------
+        llm_agent_name : str, optional
+            The attribute name in this agent, by default None
+            e.g. self.llm_1 = LLMAgent()
+                The llm_agent_name is 'llm_1'
+        """
+
+        self.llm_agents_dict = {}
+        # Update the llm agents in this agent.
+        for key, value in vars(self).items():
+            try:
+                if "type" in vars(value) and value.type == "llm_agent":
+                    # noinspection PyProtectedMember
+                    self.llm_agents_dict[key] = value
+            except:
+                pass
+
+        if llm_agent_name:
+            assert llm_agent_name in self.llm_agents_dict, f"The llm agent {llm_agent_name} is not in the agent."
+            self.llm_agents_dict[llm_agent_name].reset_generate_args()
+        else:
+            for _name, llm_agent in self.llm_agents_dict.items():
+                llm_agent.reset_generate_args()
+
     def set_information(self, information: dict) -> None:
         """
         Set the information of the agent. And check the format of the information.
@@ -113,7 +176,8 @@ class Agent:
         assert "properties" in information["function"]["parameters"], "The information must have a key 'properties'."
         assert "required" in information["function"]["parameters"], "The information must have a key 'required'."
         for parameter in information["function"]["parameters"]["required"]:
-            assert parameter in information["function"]["parameters"]["properties"], "The required parameter must in properties."
+            assert parameter in information["function"]["parameters"]["properties"], ("The required parameter must in "
+                                                                                      "properties.")
 
         self.information = information
 
@@ -153,10 +217,10 @@ class Agent:
 
         for key, value in vars(self).items():
             try:
-                if "type" in vars(value) and value.type == "agent":
+                if "type" in vars(value) and (value.type == "agent" or value.type == "llm_agent"):
                     # noinspection PyProtectedMember
                     info += f"\n{pre_blank}[SubAgent: {key}: {value._structure(order + 1)}]"
-            except AttributeError:
+            except:
                 pass
 
         return info

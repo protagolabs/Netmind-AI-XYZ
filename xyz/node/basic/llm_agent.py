@@ -28,6 +28,9 @@ import string
 from copy import deepcopy
 from typing import Generator, Any
 
+from openai import Stream
+from openai.types.chat import ChatCompletion, ChatCompletionChunk
+
 from xyz.node.agent import Agent
 from xyz.utils.llm.openai_client import OpenAIClient
 
@@ -43,7 +46,8 @@ class LLMAgent(Agent):
     last_request_info: dict
     node_config: dict
     template: list
-    generate_parameters: dict
+    generate_args: dict
+    last_generate_args: dict
     stream: bool
     original_response: bool
 
@@ -72,6 +76,8 @@ class LLMAgent(Agent):
         self.stream = stream
         self.original_response = original_response
 
+        self.type = "llm_agent"
+        self.generate_args = {}
         self.last_request_info = {}
 
     def flowing(self, messages: list = None,
@@ -100,10 +106,13 @@ class LLMAgent(Agent):
         local_messages, messages = self._reset_default_list(messages)
         local_tools, tools = self._reset_default_list(tools)
         local_messages.extend(self._complete_prompts(**kwargs))
+        self.last_generate_args = deepcopy(self.generate_args)
 
         return self.request(messages=local_messages, tools=local_tools, images=images)
 
-    def request(self, messages: list, tools: list, images: list) -> str | Generator[str, None, None]:
+    def request(self, messages: list,
+                tools: list,
+                images: list) -> str | dict | ChatCompletion | Stream[ChatCompletionChunk]:
         """
         Run the assistant with the given messages tools and images.
         """
@@ -116,18 +125,19 @@ class LLMAgent(Agent):
         if self.stream:
             return self._stream_run(messages=messages, images=images)
         else:
-            response = self.llm_client.run(messages=messages, tools=tools, images=images)
+            response = self.llm_client.run(messages=messages, tools=tools, images=images, **self.generate_args)
             if self.original_response:
                 return response
 
             content = response.choices[0].message.content
 
             if content is None:
+                # noinspection PyTypeChecker
                 return response.choices[0].message.tool_calls[0].function
             else:
                 return content
 
-    def _stream_run(self, messages: list, images: list) -> Generator[str, None, None]:
+    def _stream_run(self, messages: list, images: list) -> Stream[ChatCompletionChunk]:
         """
         Run the assistant in a streaming manner with the given messages or images.
 
@@ -142,7 +152,7 @@ class LLMAgent(Agent):
             The generator for the token(already be decoded) in assistant's messages.
         """
 
-        return self.llm_client.stream_run(messages=messages, images=images)
+        return self.llm_client.stream_run(messages=messages, images=images, **self.generate_args)
 
     def debug(self) -> dict[Any, Any]:
         """
@@ -153,6 +163,9 @@ class LLMAgent(Agent):
         dict
             The last time the request messages, tools and images.
         """
+        local_last_generate_args = deepcopy(self.llm_client.generate_args)
+        local_last_generate_args.update(self.last_generate_args)
+        self.last_request_info["generate_args"] = local_last_generate_args
 
         return self.last_request_info
 
@@ -232,3 +245,26 @@ class LLMAgent(Agent):
     def get_variables_from_fstring(fstring):
         formatter = string.Formatter()
         return [name for _, name, _, _ in formatter.parse(fstring) if name is not None]
+
+    def set_generate_args(self, **generate_args: dict) -> None:
+        """
+        Set the generate parameters for the agent.
+
+        Parameters
+        ----------
+        generate_args: dict
+            The generate parameters for the openai client.
+        """
+
+        if "stream" in generate_args:
+            del generate_args["stream"]
+            Warning("The stream parameter is set in the LLMAgent. It will be ignored.")
+
+        self.generate_args.update(**generate_args)
+
+    def reset_generate_args(self) -> None:
+        """
+        Reset the generate parameters for the agent.
+        """
+
+        self.generate_args = {}
