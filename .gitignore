@@ -9,3 +9,5 @@
 **/.env
 **/experiments
 run_test.sh
+**/*.tar
+**/mock_service

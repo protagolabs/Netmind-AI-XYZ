@@ -19,16 +19,8 @@ from example.auto_company.auto_math.agents.summary_agent import SummaryAgent
 from example.auto_company.auto_math.agents.coding_agent import CodingAgent
 
 
-def set_args():
-    parser = argparse.ArgumentParser(description="Auto Math Company")
-    parser.add_argument("--question", type=str, default="Find the sum. \( \sum_{n=1}^{10} 4n - 5 \)",
-                        help="The question which need help.")
-
-    return parser.parse_args()
-
-
-if __name__ == "__main__":
-    args = set_args()
+def main(question="Find the sum. \( \sum_{n=1}^{10} 4n - 5 \)",
+                        help="The question which need help."):
 
     llm_client = OpenAIClient(model="gpt-4-turbo")
 
@@ -43,4 +35,7 @@ if __name__ == "__main__":
 
     company.add_agent(staffs)
 
-    company(user_input=args.question)
+    company(user_input=question)
+    
+if __name__ == "__main__" :
+    main()
