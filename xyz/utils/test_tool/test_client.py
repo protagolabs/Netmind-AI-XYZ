@@ -78,6 +78,7 @@ import os
 import re
 import httpx
 import traceback
+import time
 from typing import Generator, Optional, Dict, List
 
 from dotenv import load_dotenv
@@ -86,7 +87,7 @@ from openai import OpenAIError
 from openai import Stream
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
-from mock_openai import MockOpenAI
+from xyz.utils.test_tool.mock_openai import MockOpenAI
 
 __all__ = ["TestClient"]
 
@@ -267,7 +268,15 @@ class TestClient:
                                  "gpt-3.5-turbo-0613",
                                  "gpt-3.5-turbo-1106",
                                  "gpt-3.5-turbo-0125",
-                                 "gpt-3.5-turbo-16k-0613"]
+                                 "gpt-3.5-turbo-16k-0613",
+                                 'gpt-4-1106-preview',
+                                 'gpt-3.5-turbo-1106',
+                                 'gpt-3.5-turbo-16k',
+                                 'gpt-4-turbo-2024-04-09',
+                                 'gpt-4-turbo',
+                                 'gpt-3.5-turbo-instruct-0914',
+                                 'gpt-3.5-turbo-instruct',
+                                 ]
         return openai_api_models
 
     @staticmethod
